@@ -39,6 +39,8 @@ type Position struct {
 	blackKingPosRow uint8
 	blackKingPosCol uint8
 	availableMoves  []Move
+
+	hash uint64
 }
 
 type Move struct {
@@ -90,7 +92,7 @@ type PositionOperations interface {
 	MakeMoveHumanReadable(move string) (*Position, error)
 	IsValidMove(move *Move) bool
 	GetAllMoves() []Move
-	Evaluate(prevPos *Position, move Move) float32
+	Evaluate(prevPos *Position, move *Move, positionHashes map[uint64]bool) float32
 }
 
 func isWhitePiece(piece uint8) bool {
@@ -487,6 +489,7 @@ func ClonePosition(p *Position) *Position {
 		blackKingPosRow: p.blackKingPosRow,
 		whiteKingPosCol: p.whiteKingPosCol,
 		blackKingPosCol: p.blackKingPosCol,
+		hash:            p.hash,
 	}
 }
 

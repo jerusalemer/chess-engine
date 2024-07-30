@@ -12,7 +12,7 @@ const Debug = false
 const Moves = 20
 
 // RandomSeed 0 = random
-const RandomSeed = 0
+var RandomSeed = 0
 
 type Game struct {
 	initPosition     Position
@@ -24,6 +24,9 @@ type Game struct {
 	result     int
 
 	treeDepth int
+
+	// used for 3-fold repetition
+	positionHashes map[uint64]bool
 }
 
 var g GameOperations = &Game{}
@@ -47,6 +50,7 @@ func (g *Game) InitGame(board *[8][8]string, moveWhite bool, treeDepth int) {
 	g.initPosition = *position
 	g.position = *position
 	g.treeDepth = treeDepth
+	g.positionHashes = make(map[uint64]bool)
 }
 
 func (g *Game) GetLastMove() *Move {
@@ -73,6 +77,9 @@ func (g *Game) MakeMove() {
 		g.isFinished = true
 		g.result = 0
 	}
+
+	hash := g.position.hash
+	g.positionHashes[hash] = true
 
 }
 

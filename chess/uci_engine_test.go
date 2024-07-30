@@ -6,10 +6,12 @@ import (
 
 // TestUCIEngine simulates creating a game and making several moves
 func TestUCIEngine(t *testing.T) {
+	RandomSeed = 1722317207137502000
+
 	var game *Game
 	var finished bool
 	game, finished = HandleUciCommand("ucinewgame", game)
-	cmd := "position startpos moves d2d4 d7d5 b1c3 g8f6 e2e3 c8f5 f1b5 c7c6 b5a4 b8d7 c1d2 e7e5 d4e5 d7e5 g2g3 d8d7 a1c1 e8c8 f2f4 e5c4 a4c6 d7c6 c3d5 f6d5 e3e4 f5e4 d1g4 c8b8 g1f3 c4d2 e1d2 d5f4 d2e1 f8b4 c2c3 f4d3 e1f1 d3c1 g4f4 b8c8 f4g4 c8b8 g4f4 b8c8 f4g4 f7f5 g4g7 d8d1 f1g2 e4f3 g2h3 f3g2\n"
+	cmd := "position startpos moves e2e4 e7e5 f1b5 c7c6 b5c4 d7d5 e4d5 c6d5 c4b5 e8e7 d1h5 f7f5 h5h4 g7g5 h4g5 g8f6 g1f3 c8e6 f3e5 e7d6 g5e3 a7a5 e1g1 d6e7 e3a3 d8d6 a3d6 e7d6 d2d4 f6e4 f2f4 h8g8 c1e3 b7b6 f1e1 d6c7 e1c1 c7c8 c2c3 f8h6 c1c2 g8f8 b2b3 f8h8 c2c1 h8f8 c1f1 f8g8 g2g3 h6f8 f1f3 e4f6 e3f2 f8e7 b1d2 e7d6 e5d3 g8g7 f2e3 g7b7 a1c1 h7h6 c1a1 d6a3 f3f1 a8a7 d2f3 b7c7 d3e5 c7c3 b5d7 b8d7 e5d7 a7d7 f3e5 d7g7 e3d2 c3c7 f1e1 c7a7 e1b1 f6e4 d2e1 a5a4 b3a4 a7a4 b1b6 e6g8 b6c6 c8b8 a1b1 b8a8 c6c8 a8a7 e5c6 a7a6 c6b8 a6a7 b8c6 a7a6 c6b8 a6a7\n"
 	game, finished = HandleUciCommand(cmd, game)
 	game, finished = HandleUciCommand("go infinite", game)
 

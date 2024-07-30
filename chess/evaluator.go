@@ -177,6 +177,14 @@ func ColorFactorInt(isWhite bool) int8 {
 	return int8(color)
 }
 
+func Abs(num float32) float32 {
+	if num >= 0 {
+		return num
+	} else {
+		return -num
+	}
+}
+
 func GetCheckmateEvaluation(whiteTurn bool) float32 {
 	return HighestPositionScore * ColorFactor(whiteTurn) * (-1)
 }
