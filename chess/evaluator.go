@@ -8,7 +8,7 @@ import (
 const HighestPositionScore = math.MaxFloat32
 const LowestPositionScore = -math.MaxFloat32
 
-const ThreeFoldRepetitionEvalution = -99.300128
+const ThreeFoldRepetitionEvalution = -1.900128
 
 const AvailableMovesFactor = float32(0.01)
 const AttackingMovesFactor = float32(0.02)
