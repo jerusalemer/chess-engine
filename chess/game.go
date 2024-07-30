@@ -40,6 +40,7 @@ func (g *Game) InitGame(board *[8][8]string, moveWhite bool, treeDepth int) {
 	}
 	rand.Seed(s)
 	log.Println("Random seed: ", s)
+	InitZobrist()
 
 	var positionStam PositionOperations = &Position{}
 	position := positionStam.InitPosition(board, 1, moveWhite)
@@ -56,7 +57,7 @@ func (g *Game) GetLastMove() *Move {
 }
 
 func (g *Game) MakeMove() {
-	moveSequence, eval := MakeMove(&g.position, g.treeDepth)
+	moveSequence, eval := MakeMove(&g.position, g.treeDepth, g)
 	if IsCheckmateEvaluation(eval) {
 		g.isFinished = true
 		g.result = 1 * int(ColorFactor(g.position.whiteTurn))

@@ -12,7 +12,7 @@ var commandsSentToUCI []string
 
 func StartUCI() {
 
-	logFile, _ := os.OpenFile("/Users/artg/GolandProjects/stam/main/uci_engine.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, _ := os.OpenFile("/Users/artg/dev/chess-engine/build/uci_engine.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	log.SetOutput(logFile)
 	defer func() {
 		if r := recover(); r != nil {

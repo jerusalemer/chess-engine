@@ -84,3 +84,42 @@ func TestFreePieceCapture(t *testing.T) {
 		t.Errorf("The engine didn't capture a free piece")
 	}
 }
+
+func TestZobristHashing(t *testing.T) {
+	var game *Game
+	game, _ = HandleUciCommand("ucinewgame", game)
+	game, _ = HandleUciCommand("position startpos", game)
+	positionHash := ComputeZobristHash(&game.position)
+	moves := []string{"e2e4", "e7e5", "g1f3", "b8c6", "f3e5", "c6e5"}
+	p := &game.position
+	for _, moveStr := range moves {
+		move := parseMove(moveStr, p)
+		newHash := UpdateZobristHash(positionHash, &move, p)
+		if newHash == positionHash {
+			t.Errorf("Zobrist hash must have changed")
+		}
+		positionHash = newHash
+		ApplyMovePointers(p, &move)
+	}
+
+	finalHash := ComputeZobristHash(p)
+	if finalHash != positionHash {
+		t.Errorf("Zobrist hash was not computed correctly")
+	}
+
+}
+
+func TestThreeFoldRepetition(t *testing.T) {
+	var game *Game
+	game, _ = HandleUciCommand("ucinewgame", game)
+	game, _ = HandleUciCommand("position startpos moves g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8", game)
+	prevPosition := game.position
+
+	game, _ = HandleUciCommand("position startpos moves g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8 g1f3", game)
+
+	evaluation := game.position.Evaluate(&prevPosition, game.GetLastMove(), game.positionHashes)
+
+	if evaluation != ColorFactor(game.GetLastMove().isWhite)*ThreeFoldRepetitionEvalution {
+		t.Errorf("The evaluation should be a three fold repetition evaluation, %f", evaluation)
+	}
+}

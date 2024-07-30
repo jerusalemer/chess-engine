@@ -8,6 +8,8 @@ import (
 const HighestPositionScore = math.MaxFloat32
 const LowestPositionScore = -math.MaxFloat32
 
+const ThreeFoldRepetitionEvalution = -99.300128
+
 const AvailableMovesFactor = float32(0.01)
 const AttackingMovesFactor = float32(0.02)
 
@@ -17,6 +19,15 @@ var pieceCost = map[uint8]float32{
 	BishopBit: 3,
 	RookBit:   5,
 	QueenBit:  9,
+	KingBit:   0,
+}
+
+var allPieceIndexes = map[uint8]uint8{
+	PawnBit:   1,
+	KnightBit: 2,
+	BishopBit: 3,
+	RookBit:   4,
+	QueenBit:  5,
 	KingBit:   0,
 }
 
@@ -93,7 +104,14 @@ func getAttackingMoves(p *Position, possibleMoves []Move) int {
 	return cnt
 }
 
-func (p *Position) Evaluate(prevPos *Position, move Move) float32 {
+func (p *Position) Evaluate(prevPos *Position, move *Move, positionHashes map[uint64]bool) float32 {
+
+	p.hash = UpdateZobristHash(prevPos.hash, move, prevPos)
+
+	if isThreeFoldRepetition(p, positionHashes) {
+		p.evaluation = ColorFactor(move.isWhite) * ThreeFoldRepetitionEvalution
+		return p.evaluation
+	}
 
 	possibleMoves := p.GetAllMoves()
 	possibleAttackingMoves := getAttackingMoves(p, possibleMoves)
@@ -121,6 +139,13 @@ func (p *Position) Evaluate(prevPos *Position, move Move) float32 {
 	p.evaluation = eval
 
 	return eval
+}
+
+// checks whether the hash of the position already exists in position hashes
+func isThreeFoldRepetition(pos *Position, positionHashes map[uint64]bool) bool {
+	_, exists := positionHashes[pos.hash]
+
+	return exists
 }
 
 func countMaterial(p *Position) float32 {
