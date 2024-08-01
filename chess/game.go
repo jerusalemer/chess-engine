@@ -7,16 +7,17 @@ import (
 	"time"
 )
 
-const TreeDepth = 2
-const Debug = false
+var TreeDepth = 2
+
 const Moves = 20
 
 // RandomSeed 0 = random
+var Debug = false
 var RandomSeed = 0
 
 type Game struct {
-	initPosition     Position
-	position         Position
+	initPosition     *Position
+	position         *Position
 	moves            []Move
 	bestMoveSequence []*Move
 
@@ -47,8 +48,8 @@ func (g *Game) InitGame(board *[8][8]string, moveWhite bool, treeDepth int) {
 
 	var positionStam PositionOperations = &Position{}
 	position := positionStam.InitPosition(board, 1, moveWhite)
-	g.initPosition = *position
-	g.position = *position
+	g.initPosition = position
+	g.position = position
 	g.treeDepth = treeDepth
 	g.positionHashes = make(map[uint64]bool)
 }
@@ -61,16 +62,16 @@ func (g *Game) GetLastMove() *Move {
 }
 
 func (g *Game) MakeMove() {
-	moveSequence, eval := MakeMove(&g.position, g.treeDepth, g)
+	moveSequence, eval := MakeMove(g.treeDepth, g)
 	if IsCheckmateEvaluation(eval) {
 		g.isFinished = true
 		g.result = 1 * int(ColorFactor(g.position.whiteTurn))
 	}
 
 	if moveSequence != nil && len(moveSequence) > 0 {
-		newPosition := ApplyMove(g.position, *moveSequence[0])
+		newPosition := ApplyMove(*g.position, moveSequence[0])
 		g.moves = append(g.moves, *moveSequence[0])
-		g.position = *newPosition
+		g.position = newPosition
 		g.position.evaluation = eval
 		g.bestMoveSequence = moveSequence
 	} else if !g.isFinished {

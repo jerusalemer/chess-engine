@@ -6,6 +6,7 @@ import (
 
 // TestUCIEngine simulates creating a game and making several moves
 func TestUCIEngine(t *testing.T) {
+	Debug = true
 	RandomSeed = 1722317207137502000
 
 	var game *Game
@@ -25,6 +26,7 @@ func TestUCIEngine(t *testing.T) {
 }
 
 func TestValidKingMovesUnderCheck(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos moves e2e4 e7e5 f1b5 c7c6 b5c4 d7d5 e4d5 c6d5 c4b5 e8e7 d1f3 f7f5 f3a3 e7e6 a3e3 e6f7 e3e5 c8d7 e5d5 f7f6 d5d4 f6f7 b5c4 d7e6 c4e6", game)
@@ -39,7 +41,6 @@ func TestValidKingMovesUnderCheck(t *testing.T) {
 
 func TestValidMovesForStartingPosition(t *testing.T) {
 	var game *Game
-
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos moves e2e4 e7e5", game)
 
@@ -51,6 +52,7 @@ func TestValidMovesForStartingPosition(t *testing.T) {
 }
 
 func TestMatInOne(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos moves e2e4 e7e5 f1c4 f8c5 d1h5 g8f6", game)
@@ -64,9 +66,10 @@ func TestMatInOne(t *testing.T) {
 }
 
 func TestCheckEscape(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
-	game, _ = HandleUciCommand("position startpos moves f2f4 e7e6 e2e4 d8h4", game)
+	game, _ = HandleUciCommand("position startpos moves f2f4 e7e6 c2c4 d8h4", game)
 	game, _ = HandleUciCommand("go infinite", game)
 
 	lastCommand := commandsSentToUCI[len(commandsSentToUCI)-1]
@@ -76,6 +79,7 @@ func TestCheckEscape(t *testing.T) {
 }
 
 func TestFreePieceCapture(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos moves f2f4 e7e6 e2e4 d8g5", game)
@@ -88,23 +92,24 @@ func TestFreePieceCapture(t *testing.T) {
 }
 
 func TestZobristHashing(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos", game)
-	positionHash := ComputeZobristHash(&game.position)
+	positionHash := ComputeZobristHash(game.position)
 	moves := []string{"e2e4", "e7e5", "g1f3", "b8c6", "f3e5", "c6e5"}
 	p := &game.position
 	for _, moveStr := range moves {
-		move := parseMove(moveStr, p)
-		newHash := UpdateZobristHash(positionHash, &move, p)
+		move := parseMove(moveStr, *p)
+		newHash := UpdateZobristHash(positionHash, &move, *p)
 		if newHash == positionHash {
 			t.Errorf("Zobrist hash must have changed")
 		}
 		positionHash = newHash
-		ApplyMovePointers(p, &move)
+		ApplyMovePointers(*p, &move)
 	}
 
-	finalHash := ComputeZobristHash(p)
+	finalHash := ComputeZobristHash(*p)
 	if finalHash != positionHash {
 		t.Errorf("Zobrist hash was not computed correctly")
 	}
@@ -112,6 +117,7 @@ func TestZobristHashing(t *testing.T) {
 }
 
 func TestThreeFoldRepetition(t *testing.T) {
+	Debug = true
 	var game *Game
 	game, _ = HandleUciCommand("ucinewgame", game)
 	game, _ = HandleUciCommand("position startpos moves g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8", game)
@@ -119,7 +125,7 @@ func TestThreeFoldRepetition(t *testing.T) {
 
 	game, _ = HandleUciCommand("position startpos moves g1f3 b8c6 f3g1 c6b8 g1f3 b8c6 f3g1 c6b8 g1f3", game)
 
-	evaluation := game.position.Evaluate(&prevPosition, game.GetLastMove(), game.positionHashes)
+	evaluation := game.position.Evaluate(prevPosition, game.GetLastMove(), game.positionHashes)
 
 	if evaluation != ColorFactor(game.GetLastMove().isWhite)*ThreeFoldRepetitionEvalution {
 		t.Errorf("The evaluation should be a three fold repetition evaluation, %f", evaluation)

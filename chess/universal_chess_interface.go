@@ -107,10 +107,10 @@ func handlePosition(command string) *Game {
 		}
 		if parts[moveIndex] == "moves" {
 			for i := moveIndex + 1; i < len(parts); i++ {
-				move := parseMove(parts[i], &game.position)
-				ApplyMovePointers(&game.position, &move)
+				move := parseMove(parts[i], game.position)
+				ApplyMovePointers(game.position, &move)
 				game.moves = append(game.moves, move)
-				game.position.hash = ComputeZobristHash(&game.position)
+				game.position.hash = ComputeZobristHash(game.position)
 				game.positionHashes[game.position.hash] = true
 			}
 		}

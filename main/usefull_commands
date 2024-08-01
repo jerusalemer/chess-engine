@@ -1,8 +1,8 @@
 ./cutechess-cli  \
--tournament round-robin -rounds 1 -games 30 -concurrency 1  \
+-tournament round-robin -rounds 1 -games 100 -concurrency 10  \
 -engine name=main cmd=/Users/artg/dev/chess-engine/build/main \
--engine name=main_28_7 cmd=/Users/artg/dev/chess-engine/build/main_28_7 \
+-engine name=main_prev cmd=/Users/artg/dev/chess-engine/build/main_prev \
 -each proto=uci tc=inf
 
 
-go build -o ../build/main
+go build -o /Users/artg/dev/chess-engine/build/main

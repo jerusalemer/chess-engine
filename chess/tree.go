@@ -80,6 +80,18 @@ func UpdateParentValue(parent *Node, nodeFunc NodeFunc) {
 	UpdateParentValue(parent.parent, nodeFunc)
 }
 
+func ToStringWithParents(node *Node) string {
+	str := ""
+	currNode := node
+	for {
+		if currNode.move == nil {
+			return str
+		}
+		str = currNode.move.String() + ", " + str
+		currNode = currNode.parent
+	}
+}
+
 func Print(root *Node) {
 	if root == nil {
 		return

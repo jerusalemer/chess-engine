@@ -138,7 +138,7 @@ func createPiece(piece uint8, isWhite bool) uint8 {
 func (p *Position) applyMoves(moves []Move) []Position {
 	var res []Position
 	for _, move := range moves {
-		newPos := ApplyMove(*p, move)
+		newPos := ApplyMove(*p, &move)
 		res = append(res, *newPos)
 	}
 	return res
@@ -203,7 +203,7 @@ func (p *Position) IsValidMove(move *Move) bool {
 	}
 
 	//todo this copies the entire board - should be done with pointers
-	newPos := ApplyMove(*p, *move)
+	newPos := ApplyMove(*p, move)
 	if isKingAttacked(newPos, move.isWhite) {
 		return false
 	}
@@ -246,11 +246,6 @@ func isKingAttacked(p *Position, isWhite bool) bool {
 	if !isWhite {
 		i = int8(p.blackKingPosRow)
 		j = int8(p.blackKingPosCol)
-	}
-
-	xxx, _ := getPiece(3, 6, p)
-	if xxx == KingBit {
-		log.Println("Debug")
 	}
 
 	piece, white := getPiece(uint8(i), uint8(j), p)
@@ -472,8 +467,8 @@ func (p *Position) InitPosition(board *[8][8]string, moveNum int8, turnWhite boo
 	return &pos
 }
 
-func ApplyMove(p Position, move Move) *Position {
-	ApplyMovePointers(&p, &move)
+func ApplyMove(p Position, move *Move) *Position {
+	ApplyMovePointers(&p, move)
 	return &p
 }
 

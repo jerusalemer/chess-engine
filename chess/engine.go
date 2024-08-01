@@ -3,13 +3,15 @@ package chess
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
-func MakeMove(p *Position, treeDepth int, game *Game) ([]*Move, float32) {
+func MakeMove(treeDepth int, game *Game) ([]*Move, float32) {
 	/**
 	Returns sequence of best moves
 	*/
+	p := game.position
 	start := time.Now()
 	parent := Node{
 		parent:         nil,
@@ -21,7 +23,7 @@ func MakeMove(p *Position, treeDepth int, game *Game) ([]*Move, float32) {
 		posEvaluation:  p.evaluation,
 	}
 
-	AddMovesToTree(&parent, p, treeDepth, game)
+	game.MinimaxTree(&parent, p, treeDepth, 0, 0)
 	if parent.bestChild == nil {
 		return nil, 0
 	}
@@ -42,11 +44,10 @@ func MakeMove(p *Position, treeDepth int, game *Game) ([]*Move, float32) {
 	return bestMoves, parent.treeEvaluation
 }
 
-func generateNextMovePositions(rootPosition *Position, parent *Node, positionHashes map[uint64]bool) []*Node {
-	p := GetPosition(parent, rootPosition)
+func generateNextMovePositions(p *Position, parent *Node, positionHashes map[uint64]bool) ([]*Node, []Position) {
 	moves := p.GetAllMoves()
 	if len(moves) == 0 {
-		return make([]*Node, 0)
+		return make([]*Node, 0), make([]Position, 0)
 	}
 
 	p.availableMoves = moves
@@ -55,7 +56,6 @@ func generateNextMovePositions(rootPosition *Position, parent *Node, positionHas
 
 	var nodes = make([]*Node, len(positions))
 	for i, pos := range positions {
-		pos.Evaluate(p, &moves[i], positionHashes)
 		if Debug {
 			fmt.Printf("Debug: %s, %f\n", moves[i].String(), pos.evaluation)
 		}
@@ -64,11 +64,105 @@ func generateNextMovePositions(rootPosition *Position, parent *Node, positionHas
 			children:       nil,
 			move:           &moves[i],
 			treeNodesCount: 1,
-			treeEvaluation: pos.evaluation,
-			posEvaluation:  pos.evaluation,
+			treeEvaluation: 0,
+			posEvaluation:  0,
 		}
 	}
-	return nodes
+	return nodes, positions
+}
+
+func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, alpha, beta float32) {
+
+	if Debug {
+		log.Println("Current Position")
+		currPosition.PrintPosition()
+	}
+
+	if depth == 0 {
+		return
+	}
+
+	nodes, positions := generateNextMovePositions(currPosition, currNode, g.positionHashes)
+	if len(nodes) == 0 {
+		return
+	}
+
+	//Node evaluation is the evaluation of its best child (max for white and min for black)
+	//dfs
+	for i, childNode := range nodes {
+		move := childNode.move
+
+		childPosition := &positions[i]
+
+		if strings.Contains(move.String(), "e1-e2") {
+			log.Println("Debug xxx")
+			childPosition.PrintPosition()
+		}
+
+		eval := childPosition.Evaluate(currPosition, move, g.positionHashes)
+		//todo remove posEvaluation attribute
+		childNode.posEvaluation = eval
+		childNode.treeEvaluation = eval
+		currNode.children = append(currNode.children, childNode)
+
+		if i == 0 || (move.isWhite && childNode.treeEvaluation >= currNode.treeEvaluation) ||
+			(!move.isWhite && childNode.treeEvaluation <= currNode.treeEvaluation) {
+			currNode.bestChild = childNode
+			currNode.treeEvaluation = childNode.treeEvaluation
+
+			//todo make it more efficient
+			updateParentEvaluations(currNode)
+		}
+
+		if Debug {
+			evalStr := fmt.Sprintf("%.2f", childNode.treeEvaluation)
+			log.Println("Move: ", ToStringWithParents(childNode), ", eval: ", evalStr)
+		}
+
+		// if the game is finished, or reached max depth no need to check the children
+		if Abs(eval) == Abs(GetCheckmateEvaluation(true)) || Abs(eval) == Abs(ThreeFoldRepetitionEvalution) {
+			continue
+		}
+
+		g.MinimaxTree(childNode, childPosition, depth-1, alpha, beta)
+	}
+	currNode.treeNodesCount = len(nodes)
+
+	//todo fix or remove to support pruning
+	UpdateParentValue(currNode, func(node *Node) {
+		s := 0
+		for _, c := range node.children {
+			s += c.treeNodesCount
+		}
+		node.treeNodesCount = s
+	})
+
+}
+
+func updateParentEvaluations(node *Node) {
+	UpdateParentValue(node, func(node *Node) {
+
+		if len(node.children) == 0 {
+			return
+		}
+
+		node.treeEvaluation = node.children[0].treeEvaluation
+
+		for _, c := range node.children {
+			if c.move.isWhite {
+				if c.treeEvaluation >= node.treeEvaluation {
+					node.treeEvaluation = c.treeEvaluation
+					node.bestChild = c
+				}
+			} else {
+				if c.treeEvaluation <= node.treeEvaluation {
+
+					node.treeEvaluation = c.treeEvaluation
+					node.bestChild = c
+				}
+			}
+		}
+	})
 }
 
 func AddMovesToTree(parent *Node, rootPosition *Position, movesToAdd int, game *Game) {
@@ -85,7 +179,7 @@ func AddMovesToTree(parent *Node, rootPosition *Position, movesToAdd int, game *
 }
 
 func addNextMoveToTree(parent *Node, rootPosition *Position, positionHashes map[uint64]bool) {
-	nodes := generateNextMovePositions(rootPosition, parent, positionHashes)
+	nodes, _ := generateNextMovePositions(rootPosition, parent, positionHashes)
 	parent.children = nodes
 	UpdateParentValue(parent, func(node *Node) {
 		s := 0
