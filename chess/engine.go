@@ -44,7 +44,7 @@ func MakeMove(treeDepth int, game *Game) ([]*Move, float32) {
 	return bestMoves, parent.treeEvaluation
 }
 
-func generateNextMovePositions(p *Position, parent *Node, positionHashes map[uint64]bool) ([]*Node, []Position) {
+func generateNextMovePositions(p *Position, parent *Node) ([]*Node, []Position) {
 	moves := p.GetAllMoves()
 	if len(moves) == 0 {
 		return make([]*Node, 0), make([]Position, 0)
@@ -82,7 +82,7 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, al
 		return
 	}
 
-	nodes, positions := generateNextMovePositions(currPosition, currNode, g.positionHashes)
+	nodes, positions := generateNextMovePositions(currPosition, currNode)
 	if len(nodes) == 0 {
 		return
 	}
@@ -163,54 +163,4 @@ func updateParentEvaluations(node *Node) {
 			}
 		}
 	})
-}
-
-func AddMovesToTree(parent *Node, rootPosition *Position, movesToAdd int, game *Game) {
-	if Abs(parent.posEvaluation) == GetCheckmateEvaluation(true) || Abs(parent.posEvaluation) == Abs(ThreeFoldRepetitionEvalution) {
-		return
-	}
-	if movesToAdd == 0 {
-		return
-	}
-	addNextMoveToTree(parent, rootPosition, game.positionHashes)
-	for _, c := range parent.children {
-		AddMovesToTree(c, rootPosition, movesToAdd-1, game)
-	}
-}
-
-func addNextMoveToTree(parent *Node, rootPosition *Position, positionHashes map[uint64]bool) {
-	nodes, _ := generateNextMovePositions(rootPosition, parent, positionHashes)
-	parent.children = nodes
-	UpdateParentValue(parent, func(node *Node) {
-		s := 0
-		for _, c := range node.children {
-			s += c.treeNodesCount
-		}
-		node.treeNodesCount = s
-	})
-
-	UpdateParentValue(parent, func(node *Node) {
-
-		if len(node.children) == 0 {
-			return
-		}
-
-		node.treeEvaluation = node.children[0].treeEvaluation
-
-		for _, c := range node.children {
-			if c.move.isWhite {
-				if c.treeEvaluation >= node.treeEvaluation {
-					node.treeEvaluation = c.treeEvaluation
-					node.bestChild = c
-				}
-			} else {
-				if c.treeEvaluation <= node.treeEvaluation {
-
-					node.treeEvaluation = c.treeEvaluation
-					node.bestChild = c
-				}
-			}
-		}
-	})
-
 }

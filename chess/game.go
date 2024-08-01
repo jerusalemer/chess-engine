@@ -38,13 +38,7 @@ type GameOperations interface {
 }
 
 func (g *Game) InitGame(board *[8][8]string, moveWhite bool, treeDepth int) {
-	s := int64(RandomSeed)
-	if RandomSeed == 0 {
-		s = time.Now().UnixNano()
-	}
-	rand.Seed(s)
-	log.Println("Random seed: ", s)
-	InitZobrist()
+	Init()
 
 	var positionStam PositionOperations = &Position{}
 	position := positionStam.InitPosition(board, 1, moveWhite)
@@ -52,6 +46,16 @@ func (g *Game) InitGame(board *[8][8]string, moveWhite bool, treeDepth int) {
 	g.position = position
 	g.treeDepth = treeDepth
 	g.positionHashes = make(map[uint64]bool)
+}
+
+func Init() {
+	s := int64(RandomSeed)
+	if RandomSeed == 0 {
+		s = time.Now().UnixNano()
+	}
+	rand.Seed(s)
+	log.Println("Random seed: ", s)
+	InitZobrist()
 }
 
 func (g *Game) GetLastMove() *Move {

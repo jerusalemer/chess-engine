@@ -94,7 +94,7 @@ var pieceSquares = map[byte][8][8]float32{
 	},
 }
 
-func getAttackingMoves(p *Position, possibleMoves []Move) int {
+func getAttackingMoves(possibleMoves []Move) int {
 	cnt := 0
 	for _, m := range possibleMoves {
 		if m.isCapture {
@@ -114,7 +114,7 @@ func (p *Position) Evaluate(prevPos *Position, move *Move, positionHashes map[ui
 	}
 
 	possibleMoves := p.GetAllMoves()
-	possibleAttackingMoves := getAttackingMoves(p, possibleMoves)
+	possibleAttackingMoves := getAttackingMoves(possibleMoves)
 
 	if len(possibleMoves) == 0 {
 		if isKingAttacked(p, p.whiteTurn) {
@@ -131,7 +131,7 @@ func (p *Position) Evaluate(prevPos *Position, move *Move, positionHashes map[ui
 	eval := countMaterial(p)
 
 	eval += ColorFactor(p.whiteTurn) * AvailableMovesFactor * float32(len(possibleMoves)-len(prevPos.availableMoves))
-	eval += ColorFactor(p.whiteTurn) * AttackingMovesFactor * float32(possibleAttackingMoves-getAttackingMoves(prevPos, prevPos.availableMoves))
+	eval += ColorFactor(p.whiteTurn) * AttackingMovesFactor * float32(possibleAttackingMoves-getAttackingMoves(prevPos.availableMoves))
 
 	//add a random value to evaluation to make the game less predictable, otherwise the same games keep occurring
 	eval += ColorFactor(p.whiteTurn) * rand.Float32() * 0.2

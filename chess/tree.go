@@ -2,7 +2,6 @@ package chess
 
 import (
 	"fmt"
-	"golang.org/x/exp/slices"
 )
 
 type NodeFunc func(*Node)
@@ -26,26 +25,6 @@ func PrintNode(n *Node, rootPos *Position) {
 	p := GetPosition(n, rootPos)
 	p.PrintPosition()
 	fmt.Printf("Node: %s\n", n.String())
-}
-
-func AppendNode(parent *Node, position *Position, move *Move) {
-	node := &Node{
-		parent:         parent,
-		children:       []*Node{},
-		move:           move,
-		treeNodesCount: 0,
-	}
-	parent.children = append(parent.children, node)
-}
-
-func RemoveNodes(parent *Node, nodes []*Node) {
-	var newChildren []*Node
-	for _, node := range parent.children {
-		if !slices.Contains(nodes, node) {
-			newChildren = append(newChildren, node)
-		}
-	}
-	parent.children = newChildren
 }
 
 func GetPosition(node *Node, position *Position) *Position {
@@ -89,29 +68,5 @@ func ToStringWithParents(node *Node) string {
 		}
 		str = currNode.move.String() + ", " + str
 		currNode = currNode.parent
-	}
-}
-
-func Print(root *Node) {
-	if root == nil {
-		return
-	}
-
-	queue := []*Node{root}
-
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-
-		if current.move != nil {
-			fmt.Printf("Move: %s, Evaluation: %.2f, whiteTurn=%t\n", current.move, current.treeEvaluation, current.move.isWhite)
-		} else {
-			fmt.Printf("Move: nil, Evaluation: %.2f\n", current.treeEvaluation)
-		}
-
-		// Enqueue the children of the current node
-		for _, child := range current.children {
-			queue = append(queue, child)
-		}
 	}
 }
