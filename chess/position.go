@@ -135,11 +135,14 @@ func createPiece(piece uint8, isWhite bool) uint8 {
 	}
 }
 
-func (p *Position) applyMoves(moves []Move) []Position {
-	var res []Position
-	for _, move := range moves {
+func (p *Position) applyMoves(moves []Move) []PositionMove {
+	res := make([]PositionMove, len(moves))
+	for i, move := range moves {
 		newPos := ApplyMove(*p, &move)
-		res = append(res, *newPos)
+		res[i] = PositionMove{
+			pos:  newPos,
+			move: &move,
+		}
 	}
 	return res
 }

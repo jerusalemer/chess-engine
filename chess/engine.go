@@ -3,7 +3,8 @@ package chess
 import (
 	"fmt"
 	"log"
-	"strings"
+	"math"
+	"sort"
 	"time"
 )
 
@@ -19,13 +20,12 @@ func MakeMove(treeDepth int, game *Game) ([]*Move, float32) {
 		move:           nil,
 		bestChild:      nil,
 		treeNodesCount: 1,
-		treeEvaluation: p.evaluation,
-		posEvaluation:  p.evaluation,
+		treeEvaluation: GetWorstEvaluation(p.whiteTurn),
 	}
 
-	game.MinimaxTree(&parent, p, treeDepth, 0, 0)
+	game.MinimaxTree(&parent, p, treeDepth, -math.MaxFloat32, math.MaxFloat32)
 	if parent.bestChild == nil {
-		return nil, 0
+		panic("Didn't find best move")
 	}
 
 	if Debug {
@@ -52,26 +52,65 @@ func generateNextMovePositions(p *Position, parent *Node) ([]*Node, []Position) 
 
 	p.availableMoves = moves
 
-	positions := p.applyMoves(moves)
+	positionMoves := p.applyMoves(moves)
+	sortPositions(positionMoves)
 
-	var nodes = make([]*Node, len(positions))
-	for i, pos := range positions {
+	var nodes = make([]*Node, len(positionMoves))
+	var positions = make([]Position, len(positionMoves))
+
+	for i, posMove := range positionMoves {
 		if Debug {
-			fmt.Printf("Debug: %s, %f\n", moves[i].String(), pos.evaluation)
+			posMove.pos.PrintPosition()
+			fmt.Printf("Debug: %s\n", posMove.move.String())
+			posMove.pos.PrintPosition()
 		}
+		eval := GetWorstEvaluation(posMove.pos.whiteTurn)
 		nodes[i] = &Node{
 			parent:         parent,
 			children:       nil,
-			move:           &moves[i],
+			move:           posMove.move,
 			treeNodesCount: 1,
-			treeEvaluation: 0,
-			posEvaluation:  0,
+			treeEvaluation: eval,
 		}
+		positions[i] = *posMove.pos
 	}
 	return nodes, positions
 }
 
-func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, alpha, beta float32) {
+func GetWorstEvaluation(whiteTurn bool) float32 {
+	eval := float32(math.MaxFloat32)
+	if whiteTurn {
+		eval = -math.MaxFloat32
+	}
+	return eval
+}
+
+type PositionMove struct {
+	pos  *Position
+	move *Move
+}
+
+func (m Move) toInt() int {
+	captureInt := 0
+	if m.isCapture {
+		captureInt = 1
+	}
+	return int(m.fromRow) + int(m.fromCol)*8 + int(m.toRow)*8*8 + int(m.toCol)*8*8*8 + captureInt*8*8*8*8 + int(m.pawnPromotePiece)*8*8*8*8*8
+}
+
+func sortPositions(positionMoves []PositionMove) {
+	sort.SliceStable(positionMoves, func(i, j int) bool {
+		moveI := positionMoves[i].move
+		moveJ := positionMoves[j].move
+		if moveI.toInt() > moveJ.toInt() {
+			return true
+		}
+		return false
+	})
+
+}
+
+func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, lowerBoundEval, upperBoundEval float32) {
 
 	if Debug {
 		log.Println("Current Position")
@@ -79,11 +118,15 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, al
 	}
 
 	if depth == 0 {
+		eval := currPosition.Evaluate(currPosition, currNode.move, g.positionHashes)
+		currNode.treeEvaluation = eval
 		return
 	}
 
 	nodes, positions := generateNextMovePositions(currPosition, currNode)
 	if len(nodes) == 0 {
+		eval := currPosition.Evaluate(currPosition, currNode.move, g.positionHashes)
+		currNode.treeEvaluation = eval
 		return
 	}
 
@@ -94,37 +137,50 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, al
 
 		childPosition := &positions[i]
 
-		if strings.Contains(move.String(), "e1-e2") {
-			log.Println("Debug xxx")
-			childPosition.PrintPosition()
-		}
-
-		eval := childPosition.Evaluate(currPosition, move, g.positionHashes)
-		//todo remove posEvaluation attribute
-		childNode.posEvaluation = eval
-		childNode.treeEvaluation = eval
-		currNode.children = append(currNode.children, childNode)
-
-		if i == 0 || (move.isWhite && childNode.treeEvaluation >= currNode.treeEvaluation) ||
-			(!move.isWhite && childNode.treeEvaluation <= currNode.treeEvaluation) {
-			currNode.bestChild = childNode
-			currNode.treeEvaluation = childNode.treeEvaluation
-
-			//todo make it more efficient
-			updateParentEvaluations(currNode)
+		childPosition.hash = UpdateZobristHash(currPosition.hash, move, currPosition)
+		if isThreeFoldRepetition(childPosition, g.positionHashes) {
+			childNode.treeEvaluation = ColorFactor(move.isWhite) * ThreeFoldRepetitionEvalution
+		} else {
+			g.MinimaxTree(childNode, childPosition, depth-1, lowerBoundEval, upperBoundEval)
 		}
 
 		if Debug {
 			evalStr := fmt.Sprintf("%.2f", childNode.treeEvaluation)
-			log.Println("Move: ", ToStringWithParents(childNode), ", eval: ", evalStr)
+			log.Println("MinimaxTree: Move: ", ToStringWithParents(childNode), ", eval: ", evalStr, ", alpha: ", fmt.Sprintf("%.2f", lowerBoundEval), ", beta: ", fmt.Sprintf("%.2f", upperBoundEval))
 		}
 
-		// if the game is finished, or reached max depth no need to check the children
-		if Abs(eval) == Abs(GetCheckmateEvaluation(true)) || Abs(eval) == Abs(ThreeFoldRepetitionEvalution) {
-			continue
+		currNode.children = append(currNode.children, childNode)
+		eval := childNode.treeEvaluation
+		parentEval := currNode.treeEvaluation
+
+		if move.isWhite && eval > parentEval {
+			currNode.bestChild = childNode
+			currNode.treeEvaluation = eval
+			//todo make it more efficient
+			//updateParentEvaluations(currNode)
+
+			if eval > lowerBoundEval {
+				lowerBoundEval = eval
+			}
+			if eval >= upperBoundEval {
+				break
+			}
 		}
 
-		g.MinimaxTree(childNode, childPosition, depth-1, alpha, beta)
+		if !move.isWhite && eval <= parentEval {
+			currNode.bestChild = childNode
+			currNode.treeEvaluation = eval
+			//todo make it more efficient
+			//updateParentEvaluations(currNode)
+
+			if eval < upperBoundEval {
+				upperBoundEval = eval
+			}
+			if eval <= lowerBoundEval {
+				break
+			}
+		}
+
 	}
 	currNode.treeNodesCount = len(nodes)
 
@@ -137,30 +193,4 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, al
 		node.treeNodesCount = s
 	})
 
-}
-
-func updateParentEvaluations(node *Node) {
-	UpdateParentValue(node, func(node *Node) {
-
-		if len(node.children) == 0 {
-			return
-		}
-
-		node.treeEvaluation = node.children[0].treeEvaluation
-
-		for _, c := range node.children {
-			if c.move.isWhite {
-				if c.treeEvaluation >= node.treeEvaluation {
-					node.treeEvaluation = c.treeEvaluation
-					node.bestChild = c
-				}
-			} else {
-				if c.treeEvaluation <= node.treeEvaluation {
-
-					node.treeEvaluation = c.treeEvaluation
-					node.bestChild = c
-				}
-			}
-		}
-	})
 }

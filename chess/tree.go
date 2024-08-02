@@ -14,11 +14,10 @@ type Node struct {
 	bestChild      *Node
 	treeNodesCount int
 	treeEvaluation float32
-	posEvaluation  float32
 }
 
 func (n *Node) String() string {
-	return fmt.Sprintf("Move: %s, treeNodesCount:%d, treeEvaluation:%f, posEvaluation:%f", n.move.String(), n.treeNodesCount, n.treeEvaluation, n.posEvaluation)
+	return fmt.Sprintf("Move: %s, treeNodesCount:%d, treeEvaluation:%f", n.move.String(), n.treeNodesCount, n.treeEvaluation)
 }
 
 func PrintNode(n *Node, rootPos *Position) {

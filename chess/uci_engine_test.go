@@ -6,7 +6,7 @@ import (
 
 // TestUCIEngine simulates creating a game and making several moves
 func TestUCIEngine(t *testing.T) {
-	Debug = true
+	//Debug = true
 	RandomSeed = 1722317207137502000
 
 	var game *Game
