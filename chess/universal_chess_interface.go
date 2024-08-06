@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"runtime/debug"
 	"strings"
 )
 
@@ -12,14 +13,19 @@ var commandsSentToUCI []string
 
 func StartUCI() {
 
-	logFile, _ := os.OpenFile("/Users/artg/dev/chess-engine/build/uci_engine.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	logFile, err := os.OpenFile("/Users/artg/dev/chess-engine/build/uci_engine.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	defer logFile.Close()
+
 	log.SetOutput(logFile)
+
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("UNHANDLED PANIC: %v", r)
+			log.Printf("UNHANDLED PANIC: %v\n%s", r, debug.Stack())
 		}
 	}()
-	defer logFile.Close()
 
 	reader := bufio.NewReader(os.Stdin)
 	var game *Game
@@ -38,6 +44,7 @@ func StartUCI() {
 }
 
 func HandleUciCommand(commandText string, game *Game) (*Game, bool) {
+	//commandText = strings.TrimSuffix(commandText, "\n")
 	switch {
 	case commandText == "uci":
 		handleUCI()
@@ -116,6 +123,7 @@ func handlePosition(command string) *Game {
 		}
 	}
 	game.position.PrintPosition()
+	log.Println("FEN: ", game.position.positionToFEN())
 	return game
 }
 
@@ -224,6 +232,11 @@ func parseMove(moveStr string, p *Position) Move {
 	if len(moveStr) == 5 {
 		pawnPromotePiece := moveStr[4:5]
 		m.pawnPromotePiece = PieceStrToPieceBit(pawnPromotePiece)
+	}
+
+	if piece == PawnBit && !m.isCapture && m.fromCol != m.toCol {
+		m.isCapture = true
+		m.isEnPassant = true
 	}
 	return m
 }

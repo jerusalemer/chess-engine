@@ -3,9 +3,7 @@ package chess
 import (
 	"fmt"
 	"log"
-	"os"
 	"slices"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -33,6 +31,15 @@ type Position struct {
 	evaluation  float32
 	isCheckmate bool
 
+	whiteShortCastleAllowed bool
+	blackShortCastleAllowed bool
+	whiteLongCastleAllowed  bool
+	blackLongCastleAllowed  bool
+
+	//used for en passant
+	whitePawnDoubleStepCol uint8
+	blackPawnDoubleStepCol uint8
+
 	//optimizations
 	whiteKingPosRow uint8
 	whiteKingPosCol uint8
@@ -52,6 +59,7 @@ type Move struct {
 	isCapture bool
 
 	pawnPromotePiece uint8
+	isEnPassant      bool
 }
 
 func IsCheckMate(position Position) bool {
@@ -89,7 +97,6 @@ func (m Move) Equal(other Move) bool {
 type PositionOperations interface {
 	InitPosition(board *[8][8]string, moveNum int8, turnWhite bool) *Position
 	PrintPosition()
-	MakeMoveHumanReadable(move string) (*Position, error)
 	IsValidMove(move *Move) bool
 	GetAllMoves() []Move
 	Evaluate(prevPos *Position, move *Move, positionHashes map[uint64]bool) float32
@@ -306,7 +313,18 @@ func (p *Position) GetAllMoves() []Move {
 			}
 		}
 	}
+	validMoves = p.addEnPassantMoves(validMoves)
+
 	//printMoves(validMoves, "ValidMoves")
+	return validMoves
+}
+
+func (p *Position) addEnPassantMoves(validMoves []Move) []Move {
+	if p.whiteTurn {
+		validMoves = addElPassantMoveIfPossible(validMoves, p, p.blackPawnDoubleStepCol, p.whiteTurn)
+	} else {
+		validMoves = addElPassantMoveIfPossible(validMoves, p, p.whitePawnDoubleStepCol, p.whiteTurn)
+	}
 	return validMoves
 }
 
@@ -360,14 +378,6 @@ func PieceToString(pieceBit uint8) string {
 	return str
 }
 
-func getCoordinates(s string) (uint8, uint8) {
-	letter := s[0]
-	numberPart := s[1:]
-	position := uint8(letter - 'a')
-	number, _ := strconv.Atoi(numberPart)
-	return uint8(number - 1), position
-}
-
 func cloneBoard(original [8][8]uint8) [8][8]uint8 {
 	var clone [8][8]uint8
 	for i := range original {
@@ -378,35 +388,40 @@ func cloneBoard(original [8][8]uint8) [8][8]uint8 {
 	return clone
 }
 
-func (p *Position) MakeMoveHumanReadable(move string) (*Position, error) {
-	moveNum := p.moveNum
-	if !p.whiteTurn {
-		moveNum += 1
+func (p *Position) UpdateCastingAllowance(lastMove *Move) {
+	piece, _ := getPiece(lastMove.toRow, lastMove.toCol, p)
+
+	if piece == KingBit {
+		if lastMove.isWhite {
+			p.whiteShortCastleAllowed = false
+			p.whiteLongCastleAllowed = false
+		} else {
+			p.blackShortCastleAllowed = false
+			p.blackLongCastleAllowed = false
+		}
 	}
 
-	splitted := strings.Split(move, "-")
-	x, y := getCoordinates(splitted[0])
-	X, Y := getCoordinates(splitted[1])
+	if piece == RookBit {
+		if lastMove.isWhite {
+			if lastMove.fromRow == 0 && lastMove.fromCol == 0 {
+				p.whiteLongCastleAllowed = false
+			}
 
-	if !p.IsValidMove(&Move{x, y, X, Y, p.whiteTurn, false, 0}) {
-		fmt.Printf("Invalid move: %s\n", move)
-		os.Exit(1)
+			if lastMove.fromRow == 0 && lastMove.fromCol == 7 {
+				p.whiteShortCastleAllowed = false
+			}
+
+		} else {
+			if lastMove.fromRow == 7 && lastMove.fromCol == 0 {
+				p.blackLongCastleAllowed = false
+			}
+			if lastMove.fromRow == 7 && lastMove.fromCol == 7 {
+				p.blackShortCastleAllowed = false
+			}
+		}
+
 	}
 
-	board := makeMoveInternal(p.board, X, Y, x, y)
-
-	return &Position{
-		board:     board,
-		moveNum:   moveNum,
-		whiteTurn: !p.whiteTurn,
-	}, nil
-}
-
-func makeMoveInternal(b [8][8]uint8, X uint8, Y uint8, x uint8, y uint8) [8][8]uint8 {
-	board := cloneBoard(b)
-	board[X][Y] = b[x][y]
-	board[x][y] = 0
-	return board
 }
 
 func convertBoard(board *[8][8]string) [8][8]uint8 {
@@ -447,9 +462,13 @@ func (p *Position) InitPosition(board *[8][8]string, moveNum int8, turnWhite boo
 	newBoard := convertBoard(board)
 
 	pos := Position{
-		board:     newBoard,
-		moveNum:   moveNum,
-		whiteTurn: turnWhite,
+		board:                   newBoard,
+		moveNum:                 moveNum,
+		whiteTurn:               turnWhite,
+		whiteLongCastleAllowed:  true,
+		whiteShortCastleAllowed: true,
+		blackLongCastleAllowed:  true,
+		blackShortCastleAllowed: true,
 	}
 
 	for i := uint8(0); i < 8; i++ {
@@ -477,17 +496,23 @@ func ApplyMove(p Position, move *Move) *Position {
 
 func ClonePosition(p *Position) *Position {
 	return &Position{
-		board:           cloneBoard(p.board),
-		moveNum:         p.moveNum,
-		whiteTurn:       p.whiteTurn,
-		evaluation:      p.evaluation,
-		isCheckmate:     p.isCheckmate,
-		availableMoves:  p.availableMoves,
-		whiteKingPosRow: p.whiteKingPosRow,
-		blackKingPosRow: p.blackKingPosRow,
-		whiteKingPosCol: p.whiteKingPosCol,
-		blackKingPosCol: p.blackKingPosCol,
-		hash:            p.hash,
+		board:                   cloneBoard(p.board),
+		moveNum:                 p.moveNum,
+		whiteTurn:               p.whiteTurn,
+		evaluation:              p.evaluation,
+		isCheckmate:             p.isCheckmate,
+		availableMoves:          p.availableMoves,
+		whiteKingPosRow:         p.whiteKingPosRow,
+		blackKingPosRow:         p.blackKingPosRow,
+		whiteKingPosCol:         p.whiteKingPosCol,
+		blackKingPosCol:         p.blackKingPosCol,
+		hash:                    p.hash,
+		whiteShortCastleAllowed: p.whiteShortCastleAllowed,
+		blackShortCastleAllowed: p.blackShortCastleAllowed,
+		whiteLongCastleAllowed:  p.whiteLongCastleAllowed,
+		blackLongCastleAllowed:  p.blackLongCastleAllowed,
+		whitePawnDoubleStepCol:  p.whitePawnDoubleStepCol,
+		blackPawnDoubleStepCol:  p.blackPawnDoubleStepCol,
 	}
 }
 
@@ -495,11 +520,16 @@ func ApplyMovePointers(p *Position, move *Move) {
 	piece := p.board[move.fromRow][move.fromCol]
 	origPiece, _ := getPiece(move.fromRow, move.fromCol, p)
 
+	// regular move
 	if move.pawnPromotePiece != 0 {
 		piece = move.pawnPromotePiece
 	}
 	p.board[move.toRow][move.toCol] = piece
 	p.board[move.fromRow][move.fromCol] = 0
+
+	if move.isEnPassant {
+		p.board[move.fromRow][move.toCol] = 0
+	}
 
 	if origPiece == KingBit {
 		if move.isWhite {
@@ -521,6 +551,91 @@ func ApplyMovePointers(p *Position, move *Move) {
 		}
 	}
 
+	if origPiece == PawnBit && absDiff(move.fromRow, move.toRow) == 2 {
+		if move.isWhite {
+			p.whitePawnDoubleStepCol = move.toCol
+		} else {
+			p.blackPawnDoubleStepCol = move.toCol
+		}
+	} else {
+		if move.isWhite {
+			p.whitePawnDoubleStepCol = 0
+		} else {
+			p.blackPawnDoubleStepCol = 0
+		}
+	}
+
+	p.UpdateCastingAllowance(move)
+
 	p.whiteTurn = !p.whiteTurn
 	p.moveNum += 1
+}
+
+// positionToFEN converts a Position struct to a FEN string.
+func (p *Position) positionToFEN() string {
+	var sb strings.Builder
+
+	// Board layout
+	for row := 7; row >= 0; row-- {
+		emptyCount := 0
+		for col := 0; col < 8; col++ {
+			piece, isWhite := getPiece(uint8(row), uint8(col), p)
+			if piece == 0 {
+				emptyCount++
+			} else {
+				if emptyCount > 0 {
+					sb.WriteString(fmt.Sprintf("%d", emptyCount))
+					emptyCount = 0
+				}
+				pieceStr := PieceToString(piece)
+				if isWhite {
+					pieceStr = strings.ToUpper(pieceStr)
+				}
+				sb.WriteString(pieceStr)
+			}
+		}
+		if emptyCount > 0 {
+			sb.WriteString(fmt.Sprintf("%d", emptyCount))
+		}
+		if row > 0 {
+			sb.WriteString("/")
+		}
+	}
+
+	// Active color
+	if p.whiteTurn {
+		sb.WriteString(" w ")
+	} else {
+		sb.WriteString(" b ")
+	}
+
+	// Castling availability
+	castling := ""
+	if p.whiteShortCastleAllowed {
+		castling += "K"
+	}
+	if p.whiteLongCastleAllowed {
+		castling += "Q"
+	}
+	if p.blackShortCastleAllowed {
+		castling += "k"
+	}
+	if p.blackLongCastleAllowed {
+		castling += "q"
+	}
+	if castling == "" {
+		castling = "-"
+	}
+	sb.WriteString(castling + " ")
+
+	// En passant target square (not implemented, so default to "-")
+	sb.WriteString("- ")
+
+	// Halfmove clock (not in struct, default to 0)
+	sb.WriteString("0 ")
+
+	// Fullmove number
+	sb.WriteString(fmt.Sprintf("%d", p.moveNum))
+
+	return sb.String()
 }

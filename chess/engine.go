@@ -25,7 +25,7 @@ func MakeMove(treeDepth int, game *Game) ([]*Move, float32) {
 
 	game.MinimaxTree(&parent, p, treeDepth, -math.MaxFloat32, math.MaxFloat32)
 	if parent.bestChild == nil {
-		panic("Didn't find best move")
+		log.Println("ERROR: Didn't find best child node")
 	}
 
 	if Debug {
@@ -60,9 +60,9 @@ func generateNextMovePositions(p *Position, parent *Node) ([]*Node, []Position) 
 
 	for i, posMove := range positionMoves {
 		if Debug {
-			posMove.pos.PrintPosition()
+			//posMove.pos.PrintPosition()
 			fmt.Printf("Debug: %s\n", posMove.move.String())
-			posMove.pos.PrintPosition()
+			//posMove.pos.PrintPosition()
 		}
 		eval := GetWorstEvaluation(posMove.pos.whiteTurn)
 		nodes[i] = &Node{
@@ -112,10 +112,10 @@ func sortPositions(positionMoves []PositionMove) {
 
 func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, lowerBoundEval, upperBoundEval float32) {
 
-	if Debug {
-		log.Println("Current Position")
-		currPosition.PrintPosition()
-	}
+	//if Debug {
+	//	log.Println("Current Position")
+	//	currPosition.PrintPosition()
+	//}
 
 	if depth == 0 {
 		eval := currPosition.Evaluate(currPosition, currNode.move, g.positionHashes)
@@ -125,8 +125,10 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, lo
 
 	nodes, positions := generateNextMovePositions(currPosition, currNode)
 	if len(nodes) == 0 {
-		eval := currPosition.Evaluate(currPosition, currNode.move, g.positionHashes)
-		currNode.treeEvaluation = eval
+		if currNode.move != nil {
+			eval := currPosition.Evaluate(currPosition, currNode.move, g.positionHashes)
+			currNode.treeEvaluation = eval
+		}
 		return
 	}
 
@@ -153,7 +155,7 @@ func (g *Game) MinimaxTree(currNode *Node, currPosition *Position, depth int, lo
 		eval := childNode.treeEvaluation
 		parentEval := currNode.treeEvaluation
 
-		if move.isWhite && eval > parentEval {
+		if move.isWhite && eval >= parentEval {
 			currNode.bestChild = childNode
 			currNode.treeEvaluation = eval
 			//todo make it more efficient

@@ -1,7 +1,7 @@
 package chess
 
 func (p *Position) appendMoveIfValid(fromRow, fromCol, toRow, toCol, pawnPromotePiece uint8, isWhite, isCapture, checkVacancy bool, moves []Move) []Move {
-	if toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7 {
+	if isSquareOutsideTheBoard(toRow, toCol) {
 		return moves
 	}
 
@@ -10,7 +10,7 @@ func (p *Position) appendMoveIfValid(fromRow, fromCol, toRow, toCol, pawnPromote
 		if piece != 0 {
 			isCapture = true
 		}
-		return append(moves, Move{fromRow, fromCol, toRow, toCol, isWhite, isCapture, pawnPromotePiece})
+		return append(moves, Move{fromRow, fromCol, toRow, toCol, isWhite, isCapture, pawnPromotePiece, false})
 	}
 
 	if piece != 0 && color == isWhite {
@@ -26,7 +26,11 @@ func (p *Position) appendMoveIfValid(fromRow, fromCol, toRow, toCol, pawnPromote
 		isCapture = true
 	}
 
-	return append(moves, Move{fromRow, fromCol, toRow, toCol, isWhite, isCapture, pawnPromotePiece})
+	return append(moves, Move{fromRow, fromCol, toRow, toCol, isWhite, isCapture, pawnPromotePiece, false})
+}
+
+func isSquareOutsideTheBoard(toRow uint8, toCol uint8) bool {
+	return toRow < 0 || toRow > 7 || toCol < 0 || toCol > 7
 }
 
 func getKingInitSquare(isWhite bool) (uint8, uint8) {
@@ -43,21 +47,21 @@ func (p *Position) addCastlingMoves(row, col uint8, isWhite bool, moves []Move) 
 	if row == kRow && kCol == col {
 		if isWhite {
 			piece, w := getPiece(0, 0, p)
-			if piece == RookBit && w == isWhite && p.board[0][1] == 0 && p.board[0][2] == 0 && p.board[0][3] == 0 {
+			if piece == RookBit && w == isWhite && p.board[0][1] == 0 && p.board[0][2] == 0 && p.board[0][3] == 0 && p.whiteLongCastleAllowed {
 				moves = p.appendMoveIfValid(row, col, row, 2, 0, isWhite, false, true, moves)
 			}
 			piece, w = getPiece(0, 7, p)
-			if piece == RookBit && w == isWhite && p.board[0][6] == 0 && p.board[0][5] == 0 {
+			if piece == RookBit && w == isWhite && p.board[0][6] == 0 && p.board[0][5] == 0 && p.whiteShortCastleAllowed {
 				moves = p.appendMoveIfValid(row, col, row, 6, 0, isWhite, false, true, moves)
 			}
 
 		} else {
 			piece, w := getPiece(7, 0, p)
-			if piece == RookBit && w == isWhite && p.board[7][1] == 0 && p.board[7][2] == 0 && p.board[7][3] == 0 {
+			if piece == RookBit && w == isWhite && p.board[7][1] == 0 && p.board[7][2] == 0 && p.board[7][3] == 0 && p.blackLongCastleAllowed {
 				moves = p.appendMoveIfValid(row, col, row, 2, 0, isWhite, false, true, moves)
 			}
 			piece, w = getPiece(7, 7, p)
-			if piece == RookBit && w == isWhite && p.board[7][6] == 0 && p.board[7][5] == 0 {
+			if piece == RookBit && w == isWhite && p.board[7][6] == 0 && p.board[7][5] == 0 && p.blackLongCastleAllowed {
 				moves = p.appendMoveIfValid(row, col, row, 6, 0, isWhite, false, true, moves)
 			}
 
@@ -110,6 +114,7 @@ func (p *Position) GetPossibleMoves(row uint8, col uint8, isWhite bool) []Move {
 				moves = p.appendMoveIfValid(row, col, row-2, col, 0, isWhite, false, true, moves)
 			}
 		}
+
 	}
 
 	if pieceBit == KnightBit {
@@ -173,5 +178,50 @@ func (p *Position) GetPossibleMoves(row uint8, col uint8, isWhite bool) []Move {
 
 	//printMoves(moves, "GetPossibleMoves")
 
+	return moves
+}
+
+func createEnPassantMove(fromRow, fromCol, toRow, toCol uint8, isWhite bool, p *Position) (*Move, bool) {
+	if isSquareOutsideTheBoard(fromRow, fromCol) || isSquareOutsideTheBoard(toRow, toCol) {
+		return nil, false
+	}
+	piece, w := getPiece(fromRow, fromCol, p)
+	if piece != PawnBit || isWhite != w {
+		return nil, false
+	}
+
+	if toPiece, _ := getPiece(toRow, toCol, p); toPiece != 0 {
+		return nil, false
+	}
+	return &Move{
+		fromRow:     fromRow,
+		fromCol:     fromCol,
+		toRow:       toRow,
+		toCol:       toCol,
+		isWhite:     isWhite,
+		isCapture:   true,
+		isEnPassant: true,
+	}, true
+}
+
+func addElPassantMoveIfPossible(moves []Move, p *Position, jumpingPawnCol uint8, white bool) []Move {
+	if jumpingPawnCol == 0 {
+		return moves
+	}
+	if white {
+		if m, valid := createEnPassantMove(4, jumpingPawnCol+1, 5, jumpingPawnCol, white, p); valid {
+			moves = append(moves, *m)
+		}
+		if m, valid := createEnPassantMove(4, jumpingPawnCol-1, 5, jumpingPawnCol, white, p); valid {
+			moves = append(moves, *m)
+		}
+	} else {
+		if m, valid := createEnPassantMove(3, jumpingPawnCol+1, 2, jumpingPawnCol, white, p); valid {
+			moves = append(moves, *m)
+		}
+		if m, valid := createEnPassantMove(3, jumpingPawnCol-1, 2, jumpingPawnCol, white, p); valid {
+			moves = append(moves, *m)
+		}
+	}
 	return moves
 }

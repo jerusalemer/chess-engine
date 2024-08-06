@@ -1,6 +1,7 @@
 package chess
 
 import (
+	"log"
 	"math/rand"
 )
 
@@ -58,6 +59,9 @@ func ComputeZobristHash(pos *Position) uint64 {
 
 // UpdateZobristHash updates the Zobrist hash based on a given move
 func UpdateZobristHash(hash uint64, move *Move, pos *Position) uint64 {
+	if move == nil {
+		log.Println("Art debug")
+	}
 	fromPiece, _ := getPiece(move.fromRow, move.fromCol, pos)
 	toPiece, _ := getPiece(move.toRow, move.toCol, pos)
 
